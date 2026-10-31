@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мой плеер</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Плеер">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; }
+  .app { max-width: 480px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  .add { display: block; text-align: center; padding: 12px; background: #1db954; color: #000;
+         font-weight: 600; border-radius: 10px; cursor: pointer; }
+  .add input { display: none; }
+  .now { margin: 16px 0 8px; font-size: 16px; min-height: 22px; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: #1db954; }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: #999; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 14px 0; }
+  button { background: #222; color: #eee; border: 0; border-radius: 50%; width: 46px; height: 46px;
+           font-size: 18px; cursor: pointer; }
+  button.big { width: 60px; height: 60px; background: #1db954; color: #000; font-size: 24px; }
+  button.on { background: #1db954; color: #000; }
+  .vol { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  ul { list-style: none; padding: 0; margin: 16px 0 0; }
+  li { padding: 10px 12px; border-radius: 8px; cursor: pointer; display: flex; gap: 8px;
+       justify-content: space-between; align-items: center; }
+  li:hover { background: #1c1c1c; }
+  li.active { background: #1c2a20; color: #1db954; }
+  li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li .del { color: #888; padding: 0 6px; }
+  .empty { color: #777; text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🎵 Мой плеер</h1>
+
+  <label class="add">
+    + Добавить музыку
+    <input type="file" id="files" accept="audio/*" multiple>
+  </label>
+
+  <div class="now" id="now">Ничего не играет</div>
+  <input type="range" id="seek" min="0" max="100" value="0" step="0.1">
+  <div class="times"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+
+  <div class="controls">
+    <button id="shuffle" title="Перемешать">🔀</button>
+    <button id="prev">⏮</button>
+    <button id="play" class="big">▶</button>
+    <button id="next">⏭</button>
+    <button id="repeat" title="Повтор">🔁</button>
+  </div>
+
+  <div class="vol">🔈 <input type="range" id="vol" min="0" max="1" step="0.01" value="1"></div>
+
+  <ul id="list"></ul>
+  <div class="empty" id="empty">Добавь песни, чтобы начать</div>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+const audio = document.getElementById('audio');
+const $ = id => document.getElementById(id);
+let tracks = [];      // { name, url }
+let index = -1;
+let shuffle = false;
+let repeat = false;
+
+function fmt(s) {
+  if (!isFinite(s)) return '0:00';
+  const m = Math.floor(s / 60), r = Math.floor(s % 60);
+  return m + ':' + String(r).padStart(2, '0');
+}
+
+function render() {
+  $('empty').style.display = tracks.length ? 'none' : 'block';
+  $('list').innerHTML = '';
+  tracks.forEach((t, i) => {
+    const li = document.createElement('li');
+    if (i === index) li.className = 'active';
+    const name = document.createElement('span');
+    name.textContent = t.name;
+    const del = document.createElement('span');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = e => { e.stopPropagation(); removeTrack(i); };
+    li.append(name, del);
+    li.onclick = () => playTrack(i);
+    $('list').appendChild(li);
+  });
+}
+
+function playTrack(i) {
+  if (i < 0 || i >= tracks.length) return;
+  index = i;
+  audio.src = tracks[i].url;
+  audio.play();
+  $('now').textContent = tracks[i].name;
+  document.title = tracks[i].name;
+  render();
+}
+
+function removeTrack(i) {
+  URL.revokeObjectURL(tracks[i].url);
+  tracks.splice(i, 1);
+  if (i === index) { audio.pause(); audio.removeAttribute('src'); index = -1; $('now').textContent = 'Ничего не играет'; }
+  else if (i < index) index--;
+  render();
+}
+
+function nextTrack() {
+  if (!tracks.length) return;
+  if (shuffle) return playTrack(Math.floor(Math.random() * tracks.length));
+  playTrack((index + 1) % tracks.length);
+}
+function prevTrack() {
+  if (!tracks.length) return;
+  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  playTrack((index - 1 + tracks.length) % tracks.length);
+}
+
+$('files').onchange = e => {
+  for (const f of e.target.files) {
+    tracks.push({ name: f.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(f) });
+  }
+  e.target.value = '';
+  render();
+  if (index === -1 && tracks.length) playTrack(0);
+};
+
+$('play').onclick = () => {
+  if (index === -1) return playTrack(0);
+  audio.paused ? audio.play() : audio.pause();
+};
+$('next').onclick = nextTrack;
+$('prev').onclick = prevTrack;
+$('shuffle').onclick = e => { shuffle = !shuffle; e.currentTarget.classList.toggle('on', shuffle); };
+$('repeat').onclick = e => { repeat = !repeat; e.currentTarget.classList.toggle('on', repeat); };
+$('vol').oninput = e => audio.volume = e.target.value;
+
+audio.onplay = () => $('play').textContent = '⏸';
+audio.onpause = () => $('play').textContent = '▶';
+audio.onended = () => {
+  if (repeat) { audio.currentTime = 0; audio.play(); }
+  else nextTrack();
+};
+audio.ontimeupdate = () => {
+  $('cur').textContent = fmt(audio.currentTime);
+  if (audio.duration) $('seek').value = (audio.currentTime / audio.duration) * 100;
+};
+audio.onloadedmetadata = () => $('dur').textContent = fmt(audio.duration);
+$('seek').oninput = e => { if (audio.duration) audio.currentTime = (e.target.value / 100) * audio.duration; };
+
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
