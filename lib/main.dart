@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +40,7 @@ class _PlayerHomeState extends State<PlayerHome> {
   final AudioPlayer player = AudioPlayer();
   late final StreamSubscription<ProcessingState> processingSubscription;
   bool completionHandled = false;
+  final Random random = Random();
   final TextEditingController spotify = TextEditingController();
   final List<PlatformFile> tracks = [];
   int current = -1;
@@ -119,10 +123,8 @@ class _PlayerHomeState extends State<PlayerHome> {
       return;
     }
     if (shuffle && tracks.length > 1) {
-      var n = current;
-      while (n == current) {
-        n = DateTime.now().microsecondsSinceEpoch % tracks.length;
-      }
+      var n = random.nextInt(tracks.length - 1);
+      if (n >= current) n++;
       await loadTrack(n);
     } else if (current + 1 < tracks.length) {
       await loadTrack(current + 1);
