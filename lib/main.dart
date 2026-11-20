@@ -81,6 +81,13 @@ class _PlayerHomeState extends State<PlayerHome> {
     }
   }
 
+  Future<void> disconnectSpotify() async {
+    await spotifyService.disconnect();
+    if (!mounted) return;
+    setState(() { spotifyConnected = false; importedSpotifyTracks = []; });
+    message('Spotify отключён.');
+  }
+
   Future<void> connectSpotify() async {
     try {
       await spotifyService.connect(spotifyClientId.text);
@@ -348,7 +355,10 @@ class _PlayerHomeState extends State<PlayerHome> {
         child:Text(spotifyConnected ? 'Переподключить Spotify' : 'Подключить Spotify'),
       )),
       const SizedBox(height:8),
-      Text(spotifyConnected ? 'Spotify подключён' : 'Spotify не подключён', style: const TextStyle(color: muted, fontSize: 11)),
+      Row(children:[
+        Expanded(child:Text(spotifyConnected ? 'Spotify подключён' : 'Spotify не подключён', style: const TextStyle(color: muted, fontSize: 11))),
+        if (spotifyConnected) TextButton(onPressed: disconnectSpotify, child: const Text('Отключить')),
+      ]),
       const SizedBox(height:13),
       TextField(
         controller: spotify,
