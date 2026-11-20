@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -58,12 +59,12 @@ class _PlayerHomeState extends State<PlayerHome> {
       }
 
       await _player.setFilePath(file.path!);
-      await _player.play();
       if (!mounted) return;
       setState(() {
         _trackName = file.name;
         _status = 'Файл загружен и воспроизводится';
       });
+      unawaited(_player.play());
     } catch (error) {
       if (!mounted) return;
       setState(() => _status = 'Ошибка воспроизведения: $error');
