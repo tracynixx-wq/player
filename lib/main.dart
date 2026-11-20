@@ -35,6 +35,8 @@ class PlayerHome extends StatefulWidget {
 
 class _PlayerHomeState extends State<PlayerHome> {
   final AudioPlayer player = AudioPlayer();
+  late final StreamSubscription<ProcessingState> processingSubscription;
+  bool completionHandled = false;
   final TextEditingController spotify = TextEditingController();
   final List<PlatformFile> tracks = [];
   int current = -1;
@@ -43,6 +45,27 @@ class _PlayerHomeState extends State<PlayerHome> {
   LoopMode repeat = LoopMode.off;
   String status = 'Добавьте аудиофайлы, чтобы начать слушать';
   PlatformFile? get active => current >= 0 && current < tracks.length ? tracks[current] : null;
+
+  @override
+  void initState() {
+    super.initState();
+    processingSubscription = player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed && !completionHandled) {
+        completionHandled = true;
+        handleTrackCompletion();
+      }
+    });
+  }
+
+  Future<void> handleTrackCompletion() async {
+    if (!mounted || current < 0) return;
+    if (repeat == LoopMode.one) {
+      await player.seek(Duration.zero);
+      await player.play();
+    } else {
+      await next(automatic: true);
+    }
+  }
 
   Future<void> pickFiles() async {
     if (busy) return;
@@ -64,7 +87,9 @@ class _PlayerHomeState extends State<PlayerHome> {
     if (index < 0 || index >= tracks.length) return;
     final file = tracks[index];
     try {
+      completionHandled = false;
       setState(() { current = index; status = 'Загружаю ${file.name}'; });
+      // Each list item is loaded as a separate source; playlist repeat is handled below.\n      await player.setLoopMode(LoopMode.off);
       if (!kIsWeb && file.path != null) {
         await player.setFilePath(file.path!);
       } else if (file.bytes != null) {
@@ -86,18 +111,23 @@ class _PlayerHomeState extends State<PlayerHome> {
     return types[name.split('.').last.toLowerCase()] ?? 'application/octet-stream';
   }
 
-  Future<void> next() async {
+  Future<void> next({bool automatic = false}) async {
     if (tracks.isEmpty) return;
+    if (repeat == LoopMode.one && automatic) {
+      await player.seek(Duration.zero);
+      await player.play();
+      return;
+    }
     if (shuffle && tracks.length > 1) {
-      final n = (current + 1 + DateTime.now().millisecond) % tracks.length;
-      await loadTrack(n == current ? (n + 1) % tracks.length : n);
+      var n = current;
+      while (n == current) {
+        n = DateTime.now().microsecondsSinceEpoch % tracks.length;
+      }
+      await loadTrack(n);
     } else if (current + 1 < tracks.length) {
       await loadTrack(current + 1);
     } else if (repeat == LoopMode.all) {
       await loadTrack(0);
-    } else if (repeat == LoopMode.one) {
-      await player.seek(Duration.zero);
-      await player.play();
     }
   }
 
@@ -107,7 +137,7 @@ class _PlayerHomeState extends State<PlayerHome> {
 
   void toggleRepeat() {
     setState(() => repeat = repeat == LoopMode.off ? LoopMode.all : repeat == LoopMode.all ? LoopMode.one : LoopMode.off);
-    player.setLoopMode(repeat);
+    // Repeat is applied to the playlist, not to the currently loaded file.
   }
 
   void checkSpotify() {
@@ -129,7 +159,7 @@ class _PlayerHomeState extends State<PlayerHome> {
   String time(Duration d) => '${d.inMinutes.remainder(60).toString().padLeft(2,'0')}:${d.inSeconds.remainder(60).toString().padLeft(2,'0')}';
 
   @override
-  void dispose() { spotify.dispose(); player.dispose(); super.dispose(); }
+  void dispose() { processingSubscription.cancel(); spotify.dispose(); player.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) => Scaffold(
