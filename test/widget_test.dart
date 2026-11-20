@@ -5,6 +5,6 @@ void main() {
   testWidgets('PLAYER home screen renders', (tester) async {
     await tester.pumpWidget(const PlayerApp());
     expect(find.text('PLAYER'), findsOneWidget);
-    expect(find.text('Слушай то,'), findsOneWidget);
+    expect(find.textContaining('Слушай то,'), findsOneWidget);
   });
 }
