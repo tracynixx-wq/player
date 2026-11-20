@@ -65,6 +65,7 @@ class _PlayerHomeState extends State<PlayerHome> {
     if (!mounted || current < 0) return;
     if (repeat == LoopMode.one) {
       await player.seek(Duration.zero);
+      completionHandled = false;
       await player.play();
     } else {
       await next(automatic: true);
@@ -91,7 +92,6 @@ class _PlayerHomeState extends State<PlayerHome> {
     if (index < 0 || index >= tracks.length) return;
     final file = tracks[index];
     try {
-      completionHandled = false;
       setState(() { current = index; status = 'Загружаю ${file.name}'; });
       // Each list item is loaded as a separate source; playlist repeat is handled below.\n      await player.setLoopMode(LoopMode.off);
       if (!kIsWeb && file.path != null) {
@@ -101,6 +101,7 @@ class _PlayerHomeState extends State<PlayerHome> {
       } else {
         throw Exception('Не удалось получить содержимое файла');
       }
+      completionHandled = false;
       if (!mounted) return;
       setState(() => status = 'Сейчас играет');
       await player.play();
