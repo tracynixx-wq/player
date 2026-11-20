@@ -70,6 +70,7 @@ class _PlayerHomeState extends State<PlayerHome> {
 
   Future<void> _restoreSpotify() async {
     try {
+      spotifyClientId.text = await spotifyService.getClientId();
       final connected = await spotifyService.handleRedirect(spotifyClientId.text);
       final ready = await spotifyService.isConnected;
       if (!mounted) return;
