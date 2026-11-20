@@ -382,6 +382,22 @@ class _PlayerHomeState extends State<PlayerHome> {
         style:OutlinedButton.styleFrom(foregroundColor:const Color(0xFFD5C8FF),side:const BorderSide(color:Color(0xFF554477)),
           padding:const EdgeInsets.symmetric(vertical:13),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(13))),
         child:Text(spotifyBusy ? 'Импортирую…' : spotifyConnected ? 'Импортировать плейлист' : 'Проверить формат ссылки'))),
+      if (importedSpotifyTracks.isNotEmpty) ...[
+        const SizedBox(height:14),
+        Text('Загружено треков: ${importedSpotifyTracks.length}', style: const TextStyle(fontWeight:FontWeight.w700)),
+        const SizedBox(height:8),
+        ...importedSpotifyTracks.take(30).map((track) => Padding(
+          padding: const EdgeInsets.symmetric(vertical:5),
+          child: Row(children:[
+            const Icon(Icons.music_note_rounded,color:violet,size:18),
+            const SizedBox(width:8),
+            Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Text(track.name,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:12,fontWeight:FontWeight.w600)),
+              Text(track.artists,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(fontSize:11,color:muted)),
+            ])),
+          ]),
+        )),
+      ],
     ]),
   );
 
