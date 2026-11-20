@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'spotify_service.dart';
 
 void main() => runApp(const PlayerApp());
 
@@ -42,6 +43,11 @@ class _PlayerHomeState extends State<PlayerHome> {
   bool completionHandled = false;
   final Random random = Random();
   final TextEditingController spotify = TextEditingController();
+  final TextEditingController spotifyClientId = TextEditingController();
+  final SpotifyService spotifyService = SpotifyService();
+  bool spotifyConnected = false;
+  bool spotifyBusy = false;
+  List<SpotifyTrack> importedSpotifyTracks = [];
   final List<PlatformFile> tracks = [];
   int current = -1;
   bool busy = false;
@@ -53,12 +59,48 @@ class _PlayerHomeState extends State<PlayerHome> {
   @override
   void initState() {
     super.initState();
+    _restoreSpotify();
     processingSubscription = player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed && !completionHandled) {
         completionHandled = true;
         handleTrackCompletion();
       }
     });
+  }
+
+  Future<void> _restoreSpotify() async {
+    try {
+      final connected = await spotifyService.handleRedirect(spotifyClientId.text);
+      final ready = await spotifyService.isConnected;
+      if (!mounted) return;
+      setState(() => spotifyConnected = ready);
+      if (connected) message('Spotify подключён. Теперь можно импортировать плейлист.');
+    } catch (e) {
+      if (mounted) message('Spotify: $e');
+    }
+  }
+
+  Future<void> connectSpotify() async {
+    try {
+      await spotifyService.connect(spotifyClientId.text);
+    } catch (e) {
+      message('Spotify: $e');
+    }
+  }
+
+  Future<void> importSpotifyPlaylist() async {
+    if (spotifyBusy) return;
+    setState(() => spotifyBusy = true);
+    try {
+      final imported = await spotifyService.importPlaylist(spotifyClientId.text, spotify.text);
+      if (!mounted) return;
+      setState(() => importedSpotifyTracks = imported);
+      message('Импорт завершён. Получены метаданные Spotify.');
+    } catch (e) {
+      message('Не удалось импортировать плейлист: $e');
+    } finally {
+      if (mounted) setState(() => spotifyBusy = false);
+    }
   }
 
   Future<void> handleTrackCompletion() async {
@@ -171,7 +213,7 @@ class _PlayerHomeState extends State<PlayerHome> {
   String time(Duration d) => '${d.inMinutes.remainder(60).toString().padLeft(2,'0')}:${d.inSeconds.remainder(60).toString().padLeft(2,'0')}';
 
   @override
-  void dispose() { processingSubscription.cancel(); spotify.dispose(); player.dispose(); super.dispose(); }
+  void dispose() { processingSubscription.cancel(); spotify.dispose(); spotifyClientId.dispose(); spotifyService.dispose(); player.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -285,8 +327,27 @@ class _PlayerHomeState extends State<PlayerHome> {
       const Row(children:[Icon(Icons.link_rounded,color:violet),SizedBox(width:9),
         Text('Импорт плейлиста',style:TextStyle(fontSize:15,fontWeight:FontWeight.w700))]),
       const SizedBox(height:8),
-      const Text('Вставь ссылку на Spotify-плейлист. Сейчас работает проверка ссылки; получение списка треков требует подключения Spotify API.',
+      const Text('Подключи Spotify Web API и вставь ссылку на плейлист. Импортируются названия и исполнители, не аудиофайлы.',
         style:TextStyle(color:muted,fontSize:12,height:1.45)),
+      const SizedBox(height:12),
+      TextField(
+        controller: spotifyClientId,
+        autocorrect: false,
+        enableSuggestions: false,
+        decoration: InputDecoration(
+          hintText: 'Spotify Client ID',
+          filled: true, fillColor: bg,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide.none),
+        ),
+      ),
+      const SizedBox(height:8),
+      SizedBox(width:double.infinity,child:FilledButton(
+        onPressed: spotifyBusy ? null : connectSpotify,
+        style:FilledButton.styleFrom(backgroundColor:violet,foregroundColor:Colors.white,padding:const EdgeInsets.symmetric(vertical:13),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(13))),
+        child:Text(spotifyConnected ? 'Переподключить Spotify' : 'Подключить Spotify'),
+      )),
+      const SizedBox(height:8),
+      Text(spotifyConnected ? 'Spotify подключён' : 'Spotify не подключён', style: const TextStyle(color: muted, fontSize: 11)),
       const SizedBox(height:13),
       TextField(
         controller: spotify,
@@ -316,10 +377,10 @@ class _PlayerHomeState extends State<PlayerHome> {
         ),
       ),
       const SizedBox(height:10),
-      SizedBox(width:double.infinity,child:OutlinedButton(onPressed:checkSpotify,
+      SizedBox(width:double.infinity,child:OutlinedButton(onPressed:spotifyConnected && !spotifyBusy ? importSpotifyPlaylist : checkSpotify,
         style:OutlinedButton.styleFrom(foregroundColor:const Color(0xFFD5C8FF),side:const BorderSide(color:Color(0xFF554477)),
           padding:const EdgeInsets.symmetric(vertical:13),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(13))),
-        child:const Text('Проверить формат ссылки'))),
+        child:Text(spotifyBusy ? 'Импортирую…' : spotifyConnected ? 'Импортировать плейлист' : 'Проверить формат ссылки'))),
     ]),
   );
 
