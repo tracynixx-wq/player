@@ -78,9 +78,18 @@ class _PlayerHomeState extends State<PlayerHome> {
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.audio, allowMultiple: true, withData: true);
       if (result == null || result.files.isEmpty) return;
+      final existing = tracks.map((file) => '${file.name}:${file.size}').toSet();
+      final freshFiles = result.files.where((file) => !existing.contains('${file.name}:${file.size}')).toList();
+      if (freshFiles.isEmpty) {
+        message('Эти файлы уже добавлены в библиотеку.');
+        return;
+      }
       final start = tracks.length;
-      setState(() { tracks.addAll(result.files); status = 'Добавлено файлов: ${result.files.length}'; });
-      if (current == -1) await loadTrack(start);
+      setState(() {
+        tracks.addAll(freshFiles);
+        status = 'Добавлено файлов: ${freshFiles.length}';
+      });
+      if (current == -1) await loadTrack(start, autoplay: false);
     } catch (e) {
       message('Не удалось открыть файлы: $e');
     } finally {
@@ -88,7 +97,7 @@ class _PlayerHomeState extends State<PlayerHome> {
     }
   }
 
-  Future<void> loadTrack(int index) async {
+  Future<void> loadTrack(int index, {bool autoplay = true}) async {
     if (index < 0 || index >= tracks.length) return;
     final file = tracks[index];
     try {
@@ -103,8 +112,8 @@ class _PlayerHomeState extends State<PlayerHome> {
       }
       completionHandled = false;
       if (!mounted) return;
-      setState(() => status = 'Сейчас играет');
-      await player.play();
+      setState(() => status = autoplay ? 'Сейчас играет' : 'Готово к воспроизведению');
+      if (autoplay) await player.play();
     } catch (e) {
       if (mounted) setState(() => status = 'Ошибка загрузки файла');
       message('Не удалось воспроизвести ${file.name}: $e');
@@ -150,8 +159,8 @@ class _PlayerHomeState extends State<PlayerHome> {
     final valid = uri != null && (uri.host == 'open.spotify.com' || uri.host == 'www.spotify.com') &&
       i >= 0 && i + 1 < segments.length && RegExp(r'^[A-Za-z0-9]+$').hasMatch(segments[i + 1]);
     message(valid
-      ? 'Ссылка распознана. Получение списка треков подключается отдельно через Spotify API.'
-      : 'Вставьте корректную ссылку на плейлист Spotify.');
+      ? 'Ссылка корректная. Импорт треков пока не активен: для него нужно настроить авторизацию Spotify.'
+      : 'Ссылка не распознана. Нужен адрес open.spotify.com/playlist/…');
   }
 
   void message(String value) {
@@ -279,15 +288,38 @@ class _PlayerHomeState extends State<PlayerHome> {
       const Text('Вставь ссылку на Spotify-плейлист. Сейчас работает проверка ссылки; получение списка треков требует подключения Spotify API.',
         style:TextStyle(color:muted,fontSize:12,height:1.45)),
       const SizedBox(height:13),
-      TextField(controller:spotify,keyboardType:TextInputType.url,style:const TextStyle(fontSize:13),
-        decoration:InputDecoration(hintText:'open.spotify.com/playlist/…',hintStyle:const TextStyle(color:muted,fontSize:12),
-          filled:true,fillColor:bg,prefixIcon:const Icon(Icons.link,size:19,color:muted),contentPadding:const EdgeInsets.symmetric(vertical:13),
-          border:OutlineInputBorder(borderRadius:BorderRadius.circular(13),borderSide:BorderSide.none))),
+      TextField(
+        controller: spotify,
+        keyboardType: TextInputType.url,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.left,
+        maxLines: 1,
+        autocorrect: false,
+        enableSuggestions: false,
+        style: const TextStyle(fontSize: 12),
+        decoration: InputDecoration(
+          hintText: 'https://open.spotify.com/playlist/…',
+          hintStyle: const TextStyle(color: muted, fontSize: 12),
+          filled: true,
+          fillColor: bg,
+          prefixIcon: const Icon(Icons.link, size: 19, color: muted),
+          suffixIcon: IconButton(
+            tooltip: 'Очистить ссылку',
+            onPressed: () => spotify.clear(),
+            icon: const Icon(Icons.close, size: 18, color: muted),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 13),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(13),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
       const SizedBox(height:10),
       SizedBox(width:double.infinity,child:OutlinedButton(onPressed:checkSpotify,
         style:OutlinedButton.styleFrom(foregroundColor:const Color(0xFFD5C8FF),side:const BorderSide(color:Color(0xFF554477)),
           padding:const EdgeInsets.symmetric(vertical:13),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(13))),
-        child:const Text('Проверить ссылку'))),
+        child:const Text('Проверить формат ссылки'))),
     ]),
   );
 
