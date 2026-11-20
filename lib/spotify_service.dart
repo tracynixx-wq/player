@@ -22,12 +22,18 @@ class SpotifyService {
   static const _stateKey = 'spotify_oauth_state';
   final http.Client _http = http.Client();
 
+  Future<String> getClientId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('spotify_client_id') ?? '';
+  }
+
   Future<void> connect(String clientId) async {
     if (clientId.trim().isEmpty) throw Exception('Укажи Spotify Client ID.');
     final verifier = _randomString(64);
     final challenge = base64Url.encode(sha256.convert(utf8.encode(verifier)).bytes).replaceAll('=', '');
     final state = _randomString(32);
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('spotify_client_id', clientId.trim());
     await prefs.setString(_verifierKey, verifier);
     await prefs.setString(_stateKey, state);
     final uri = Uri.https('accounts.spotify.com', '/authorize', {
