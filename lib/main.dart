@@ -203,7 +203,8 @@ class _PlayerHomeState extends State<PlayerHome> {
   ]);
 
   Widget trackList() {
-    if (tracks.isEmpty) return Container(
+    if (tracks.isEmpty) {
+      return Container(
       padding:const EdgeInsets.symmetric(vertical:28,horizontal:18),
       decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(20),border:Border.all(color:Colors.white.withValues(alpha:.05))),
       child:const Column(children:[
@@ -211,7 +212,8 @@ class _PlayerHomeState extends State<PlayerHome> {
         Text('Здесь пока пусто',style:TextStyle(fontWeight:FontWeight.w600)),SizedBox(height:5),
         Text('Добавленные аудиофайлы появятся здесь',textAlign:TextAlign.center,style:TextStyle(color:muted,fontSize:12)),
       ]),
-    );
+      );
+    }
     return ListView.separated(
       shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),itemCount:tracks.length,
       separatorBuilder:(_,__)=>const SizedBox(height:7),
