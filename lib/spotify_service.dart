@@ -82,6 +82,15 @@ class SpotifyService {
     return true;
   }
 
+  Future<void> disconnect() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_accessKey);
+    await prefs.remove(_refreshKey);
+    await prefs.remove(_expiryKey);
+    await prefs.remove(_stateKey);
+    await prefs.remove(_verifierKey);
+  }
+
   Future<bool> get isConnected async {
     final prefs = await SharedPreferences.getInstance();
     return (prefs.getString(_accessKey) ?? '').isNotEmpty;
