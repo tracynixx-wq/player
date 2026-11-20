@@ -1,0 +1,13 @@
+{
+  "name": "PLAYER — музыкальный плеер",
+  "short_name": "PLAYER",
+  "description": "Твой личный музыкальный плеер",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0A10",
+  "theme_color": "#0B0A10",
+  "lang": "ru",
+  "icons": [{"src":"icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
